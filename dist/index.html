@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#155eef" />
+    <meta name="description" content="云象天气：查看多城市的即时天气、逐小时降雨概率与七日趋势。" />
+    <title>云象天气 · 即时天气工作台</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="stylesheet" href="./styles.css" />
+    <script defer src="./app.js"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="./" aria-label="云象天气首页">
+          <span class="brand-mark" aria-hidden="true"><span></span></span>
+          <span class="brand-name">云象</span>
+          <span class="brand-caption">WEATHER DESK</span>
+        </a>
+        <div class="topbar-actions">
+          <div class="live-state" id="liveState"><span class="live-dot"></span><span>连接天气源</span></div>
+          <button class="account-button" id="accountTrigger" type="button">登录 / 注册</button>
+        </div>
+      </header>
+
+      <main class="site-main">
+        <section class="search-band" aria-labelledby="searchTitle">
+          <div class="search-copy">
+            <p class="eyebrow">YOUR WEATHER DESK</p>
+            <h1 id="searchTitle">把天气，变成<br /><em>清楚的下一步。</em></h1>
+            <p class="search-intro">输入城市，查看即时天气、逐小时降雨概率和未来七天的变化。</p>
+          </div>
+          <form class="search-form" id="citySearchForm" autocomplete="off">
+            <label class="sr-only" for="cityInput">搜索城市</label>
+            <div class="search-input-wrap">
+              <span class="search-glyph" aria-hidden="true">⌕</span>
+              <input id="cityInput" name="city" type="search" placeholder="搜索城市，例如：青岛" aria-describedby="searchHint" />
+              <button type="submit">搜索</button>
+            </div>
+            <p id="searchHint" class="search-hint">支持中文或英文城市名，最多关注 5 个城市。</p>
+            <div class="search-results" id="searchResults" role="listbox" aria-label="城市搜索结果" hidden></div>
+          </form>
+        </section>
+
+        <section class="workspace" aria-label="天气工作台">
+          <aside class="city-rail panel" aria-labelledby="citiesTitle">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">WATCHLIST</p>
+                <h2 id="citiesTitle">关注城市</h2>
+              </div>
+              <span class="count-label" id="cityCount">0 / 5</span>
+            </div>
+            <div class="city-list" id="cityList"></div>
+            <div class="rail-note">
+              <span class="rail-note-mark" aria-hidden="true">+</span>
+              <span>搜索城市即可加入关注列表</span>
+            </div>
+          </aside>
+
+          <section class="weather-column" id="weatherColumn" aria-live="polite">
+            <div class="weather-toolbar">
+              <div>
+                <p class="eyebrow">CITY SNAPSHOT</p>
+                <h2 id="selectedCityTitle">正在读取天气…</h2>
+              </div>
+              <button class="refresh-button" id="refreshButton" type="button" aria-label="刷新当前城市天气">
+                <span aria-hidden="true">↻</span> 刷新
+              </button>
+            </div>
+
+            <div id="weatherView" class="weather-view">
+              <div class="loading-card panel"><span class="loading-pulse"></span>正在从天气源读取数据…</div>
+            </div>
+          </section>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <p>云象天气 · 让每一次出门，都有可读的天气依据</p>
+        <p>天气数据来自 <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a> · 当前天气与预报均以 API 返回为准</p>
+      </footer>
+    </div>
+
+    <dialog class="auth-dialog" id="authDialog" aria-labelledby="authTitle">
+      <div class="auth-dialog-inner">
+        <button class="dialog-close" id="authClose" type="button" aria-label="关闭登录窗口">×</button>
+        <div class="auth-header">
+          <p class="eyebrow">PERSONAL DESK</p>
+          <h2 id="authTitle">保存你的天气视角</h2>
+          <p id="authSubtitle">登录后可以在这台设备上保留关注城市。</p>
+        </div>
+        <div class="auth-tabs" role="tablist" aria-label="账户操作">
+          <button class="auth-tab is-active" id="loginTab" type="button" role="tab" aria-selected="true">登录</button>
+          <button class="auth-tab" id="registerTab" type="button" role="tab" aria-selected="false">注册</button>
+        </div>
+        <form class="auth-form" id="authForm">
+          <div class="form-field" id="nameField" hidden>
+            <label for="authName">昵称</label>
+            <input id="authName" type="text" autocomplete="name" placeholder="例如：小云" />
+          </div>
+          <div class="form-field">
+            <label for="authEmail">邮箱</label>
+            <input id="authEmail" type="email" autocomplete="email" placeholder="you@example.com" required />
+          </div>
+          <div class="form-field">
+            <label for="authPassword">密码</label>
+            <input id="authPassword" type="password" autocomplete="current-password" minlength="6" placeholder="至少 6 位" required />
+          </div>
+          <div class="form-field" id="confirmField" hidden>
+            <label for="authConfirm">确认密码</label>
+            <input id="authConfirm" type="password" autocomplete="new-password" minlength="6" placeholder="再次输入密码" />
+          </div>
+          <p class="auth-message" id="authMessage" role="status"></p>
+          <button class="auth-submit" id="authSubmit" type="submit">登录</button>
+          <p class="auth-footnote">这是本机演示账户，密码只以加密摘要保存在当前浏览器中。</p>
+        </form>
+      </div>
+    </dialog>
+
+    <dialog class="auth-dialog account-dialog" id="accountDialog" aria-labelledby="accountTitle">
+      <div class="auth-dialog-inner">
+        <button class="dialog-close" id="accountClose" type="button" aria-label="关闭账户窗口">×</button>
+        <div class="auth-header">
+          <p class="eyebrow">MY WEATHER DESK</p>
+          <h2 id="accountTitle">欢迎回来</h2>
+          <p id="accountEmail"></p>
+        </div>
+        <div class="account-summary">
+          <span class="account-avatar" id="accountAvatar">云</span>
+          <div><strong id="accountName">天气观察员</strong><span>本机账户</span></div>
+        </div>
+        <button class="auth-submit secondary" id="logoutButton" type="button">退出登录</button>
+      </div>
+    </dialog>
+  </body>
+</html>
