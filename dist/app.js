@@ -44,6 +44,9 @@ function init() {
       renderCities();
       renderSelectedCity();
     });
+    window.setInterval(() => {
+      state.cities.forEach((city) => loadForecast(city, true));
+    }, 15 * 60 * 1000);
   } else {
     renderEmptyState();
   }
@@ -93,7 +96,7 @@ async function searchCities(query, isLive = false) {
     const response = await fetch(url);
     if (!response.ok) throw new Error("城市搜索暂时不可用");
     const json = await response.json();
-    renderSearchResults(json.results || [], isLive);
+    renderSearchResults(json.results || []);
   } catch (error) {
     renderSearchMessage(error.message || "城市搜索失败");
   } finally {
@@ -102,7 +105,7 @@ async function searchCities(query, isLive = false) {
   }
 }
 
-function renderSearchResults(results, isLive) {
+function renderSearchResults(results) {
   if (!results.length) {
     renderSearchMessage("没有找到这个城市，请换一种写法");
     return;
@@ -111,7 +114,7 @@ function renderSearchResults(results, isLive) {
     const location = [place.admin1, place.country].filter(Boolean).join(" · ");
     return `<button class="search-result" type="button" data-result-index="${index}">
       <span><strong>${escapeHTML(place.name)}</strong><span>${escapeHTML(location || "未知地区")}</span></span>
-      <span class="result-add">${isLive ? "查看" : "加入 +"}</span>
+      <span class="result-add">加入 +</span>
     </button>`;
   }).join("");
   els.searchResults.hidden = false;
@@ -272,12 +275,19 @@ function renderRainChart(daily) {
   const max = finite.length ? Math.max(...finite) : 0;
   const axisMax = max > 0 ? Math.ceil(max * 1.15 * 10) / 10 : 1;
   const points = daily.map((day, index) => day.amount === null ? null : { x: left + (chartWidth * index / Math.max(daily.length - 1, 1)), y: top + chartHeight - ((day.amount / axisMax) * chartHeight), day });
-  const linePoints = points.filter(Boolean).map((point) => `${point.x},${point.y}`).join(" ");
-  const areaPoints = points.filter(Boolean).length > 1 ? `${left},${top + chartHeight} ${linePoints} ${left + chartWidth},${top + chartHeight}` : "";
+  const segments = [];
+  let segment = [];
+  points.forEach((point) => {
+    if (point) segment.push(`${point.x},${point.y}`);
+    else if (segment.length) { segments.push(segment.join(" ")); segment = []; }
+  });
+  if (segment.length) segments.push(segment.join(" "));
+  const lineMarkup = segments.map((segmentPoints) => `<polyline class="chart-line" points="${segmentPoints}" />`).join("");
+  const areaPoints = points.every(Boolean) && points.length > 1 ? `${left},${top + chartHeight} ${segments[0]} ${left + chartWidth},${top + chartHeight}` : "";
   const grid = [0, .5, 1].map((ratio) => { const y = top + chartHeight - ratio * chartHeight; return `<line class="chart-gridline" x1="${left}" y1="${y}" x2="${width - right}" y2="${y}" /><text class="chart-axis-label" x="2" y="${y + 4}">${formatNumber(axisMax * ratio)}</text>`; }).join("");
   const labels = daily.map((day, index) => `<text class="chart-axis-label" text-anchor="middle" x="${left + (chartWidth * index / Math.max(daily.length - 1, 1))}" y="${height - 5}">${escapeHTML(day.shortDate)}</text>`).join("");
   const circles = points.map((point, index) => point ? `<circle class="chart-point" tabindex="0" role="img" aria-label="${escapeHTML(point.day.date)}，${formatNumber(point.day.amount)} 毫米" data-chart-index="${index}" cx="${point.x}" cy="${point.y}" r="5" />` : "").join("");
-  return `<div class="chart-wrap"><svg class="rain-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="未来七天每日降水量折线图"><defs><linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#d8ebff" stop-opacity=".9"/><stop offset="100%" stop-color="#d8ebff" stop-opacity=".08"/></linearGradient></defs>${grid}${areaPoints ? `<polygon class="chart-area" points="${areaPoints}" />` : ""}${linePoints ? `<polyline class="chart-line" points="${linePoints}" />` : ""}${circles}${labels}</svg><div class="chart-tooltip" id="chartTooltip"></div></div>`;
+  return `<div class="chart-wrap"><svg class="rain-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="未来七天每日降水量折线图"><defs><linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#d8ebff" stop-opacity=".9"/><stop offset="100%" stop-color="#d8ebff" stop-opacity=".08"/></linearGradient></defs>${grid}${areaPoints ? `<polygon class="chart-area" points="${areaPoints}" />` : ""}${lineMarkup}${circles}${labels}</svg><div class="chart-tooltip" id="chartTooltip"></div></div>`;
 }
 
 function renderDay(day, isToday) {
@@ -343,7 +353,7 @@ function removeCity(id) {
 }
 
 function setRefreshLoading(isLoading) { state.isRefreshing = isLoading; els.refreshButton.classList.toggle("is-loading", isLoading); els.refreshButton.disabled = isLoading; }
-function setLiveState(status) { els.liveState.classList.remove("is-ready", "is-error"); if (status === "ready") { els.liveState.classList.add("is-ready"); els.liveState.querySelector("span:last-child").textContent = "天气源已连接"; } else if (status === "error") { els.liveState.classList.add("is-error"); els.liveState.querySelector("span:last-child").textContent = "天气源连接异常"; } }
+function setLiveState(status) { els.liveState.classList.remove("is-ready", "is-error"); if (status === "ready") { els.liveState.classList.add("is-ready"); els.liveState.querySelector("span:last-child").textContent = "天气源已连接 · 15 分钟自动更新"; } else if (status === "error") { els.liveState.classList.add("is-error"); els.liveState.querySelector("span:last-child").textContent = "天气源连接异常"; } }
 function hideSearchResults() { els.searchResults.hidden = true; els.searchResults.innerHTML = ""; }
 function getSelectedCity() { return state.cities.find((city) => city.id === state.selectedId); }
 function persistCities() { localStorage.setItem(STORAGE_KEYS.cities, JSON.stringify(state.cities)); }
